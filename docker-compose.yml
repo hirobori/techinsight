@@ -1,0 +1,44 @@
+services:
+  db:
+    image: pgvector/pgvector:0.7.4-pg16
+    environment:
+      POSTGRES_USER: tech
+      POSTGRES_PASSWORD: tech
+      POSTGRES_DB: techinsight
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tech -d techinsight"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://tech:tech@db:5432/techinsight
+      RUN_SEED: "true"
+      CSV_PATH: /data/articles.csv
+      EMBEDDING_DIM: "384"
+      LOG_LEVEL: "INFO"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./articles.csv:/data/articles.csv:ro
+
+  frontend:
+    build: ./frontend
+    environment:
+      NEXT_PUBLIC_API_BASE: http://localhost:8000
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  db_data:
